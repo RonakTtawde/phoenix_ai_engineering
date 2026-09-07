@@ -225,3 +225,55 @@ class TestMultipleTasks:
         })
         assert r1.json()["assigned_agent"] == "ANALYSIS-001"
         assert r2.json()["assigned_agent"] == "DEBUG-001"
+
+
+# ---------------------------------------------------------------------------
+# OpenCode API routing
+# ---------------------------------------------------------------------------
+
+class TestOpenCodeApiRouting:
+    def test_explicit_opencode_agent_routes_through_api(
+        self,
+        client,
+        monkeypatch,
+    ):
+        from runtime.api import main as api_main
+        from runtime.core.result import AgentResult, AgentStatus
+
+        orch = api_main._get_orchestrator()
+        opencode_agent = orch.agents["adapter:opencode"]
+
+        def fake_execute(task):
+            return AgentResult(
+                status=AgentStatus.SUCCESS,
+                summary="Mock OpenCode execution completed",
+                artifacts=["runtime/adapters/opencode.py"],
+                validation_results=["mock validation passed"],
+            )
+
+        monkeypatch.setattr(opencode_agent, "execute", fake_execute)
+
+        resp = client.post(
+            "/tasks",
+            json={
+                "title": "OpenCode API routing test",
+                "objective": "Verify explicit OpenCode routing",
+                "task_type": "code_review",
+                "assigned_agent": "adapter:opencode",
+                "relevant_files": [
+                    "/mnt/d/phoenix_ai_engineering/runtime/adapters/opencode.py"
+                ],
+            },
+        )
+
+        assert resp.status_code == 201
+        task_id = resp.json()["task_id"]
+        assert resp.json()["assigned_agent"] == "adapter:opencode"
+
+        detail = client.get(f"/tasks/{task_id}")
+        assert detail.status_code == 200
+
+        data = detail.json()
+        assert data["result"]["agent_id"] == "adapter:opencode"
+        assert data["result"]["status"] == "SUCCESS"
+        assert data["result"]["summary"] == "Mock OpenCode execution completed"
