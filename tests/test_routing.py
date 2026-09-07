@@ -461,12 +461,36 @@ class TestBackwardCompatibility:
 
     def test_adapter_agents_still_work(self):
         from runtime.adapters.adapter_agent import AdapterAgent
-        from runtime.adapters.opencode import OpenCodeAdapter
+        from runtime.adapters.base import AdapterCapability, AgentAdapter
         from runtime.core.orchestrator import EngineeringOrchestrator
-        from runtime.core.result import AgentStatus
+        from runtime.core.result import AgentResult, AgentStatus
         from runtime.core.task import Task
 
-        agent = AdapterAgent(OpenCodeAdapter())
+        class LocalTestAdapter(AgentAdapter):
+            adapter_id = "local-test"
+            name = "Local Test Adapter"
+
+            def check_availability(self) -> bool:
+                return True
+
+            def capabilities(self) -> AdapterCapability:
+                return AdapterCapability(
+                    task_types=["debugging"],
+                    supports_dry_run=True,
+                    supports_modification=False,
+                )
+
+            def execute(
+                self,
+                task: Task,
+                dry_run: bool = False,
+            ) -> AgentResult:
+                return AgentResult(
+                    status=AgentStatus.SUCCESS,
+                    summary="Local adapter executed successfully",
+                )
+
+        agent = AdapterAgent(LocalTestAdapter())
         orch = EngineeringOrchestrator(agents={agent.agent_id: agent})
         task = Task(title="T", objective="O", task_type="debugging")
         orch.accept_task(task)
