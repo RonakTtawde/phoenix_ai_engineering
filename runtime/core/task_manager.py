@@ -72,8 +72,19 @@ class TaskManager:
 
         if task.status == TaskStatus.IN_REVIEW:
             self.orchestrator.complete_task(task)
+            self._progress_dependents(task.task_id)
 
         return result
+
+    def _progress_dependents(self, completed_task_id: str) -> None:
+        """Execute tasks unlocked by a completed task, including chains."""
+        for task in self.tasks.values():
+            if (
+                completed_task_id in task.dependencies
+                and task.status == TaskStatus.READY
+                and self.dependencies_satisfied(task)
+            ):
+                self.execute_task(task.task_id)
 
     def execute_next(self) -> AgentResult | None:
         """Execute the next ready task in registration order."""

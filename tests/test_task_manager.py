@@ -112,7 +112,8 @@ def test_dependency_becomes_ready_after_completion():
     assert result.status == AgentStatus.SUCCESS
     assert first.status == TaskStatus.COMPLETED
     assert manager.dependencies_satisfied(second)
-    assert manager.get_ready_tasks() == [second]
+    assert second.status == TaskStatus.COMPLETED
+    assert manager.get_ready_tasks() == []
 
 
 def test_execute_next_runs_first_ready_task():
@@ -215,5 +216,69 @@ def test_progress_reports_status_counts():
 
     progress = manager.progress()
 
-    assert progress["COMPLETED"] == 1
-    assert progress["READY"] == 1
+    assert progress["COMPLETED"] == 2
+    assert progress["READY"] == 0
+
+# ---------------------------------------------------------------------------
+# Automatic dependency progression
+# ---------------------------------------------------------------------------
+
+def test_completed_task_automatically_executes_unlocked_dependent():
+    manager = _make_manager()
+
+    first = Task(
+        title="Analyze",
+        objective="Analyze code",
+        task_type="project_analysis",
+    )
+
+    second = Task(
+        title="Debug",
+        objective="Debug code",
+        task_type="debugging",
+        dependencies=[first.task_id],
+    )
+
+    manager.add_task(first)
+    manager.add_task(second)
+
+    result = manager.execute_task(first.task_id)
+
+    assert result.status == AgentStatus.SUCCESS
+    assert first.status == TaskStatus.COMPLETED
+    assert second.status == TaskStatus.COMPLETED
+
+
+def test_completed_task_automatically_progresses_dependency_chain():
+    manager = _make_manager()
+
+    first = Task(
+        title="Analyze",
+        objective="Analyze code",
+        task_type="project_analysis",
+    )
+
+    second = Task(
+        title="Debug",
+        objective="Debug code",
+        task_type="debugging",
+        dependencies=[first.task_id],
+    )
+
+    third = Task(
+        title="Analyze follow-up",
+        objective="Analyze results",
+        task_type="project_analysis",
+        dependencies=[second.task_id],
+    )
+
+    manager.add_task(first)
+    manager.add_task(second)
+    manager.add_task(third)
+
+    result = manager.execute_task(first.task_id)
+
+    assert result.status == AgentStatus.SUCCESS
+    assert first.status == TaskStatus.COMPLETED
+    assert second.status == TaskStatus.COMPLETED
+    assert third.status == TaskStatus.COMPLETED
