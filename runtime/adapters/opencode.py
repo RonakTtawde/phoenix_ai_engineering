@@ -28,7 +28,7 @@ DESTRUCTIVE_COMMANDS = frozenset(
     }
 )
 
-DEFAULT_MODEL = "openrouter/cohere/north-mini-code:free"
+DEFAULT_MODEL = "opencode/mimo-v2.5-free"
 
 ALLOWED_REPOSITORY_ROOTS = (
     pathlib.Path("/mnt/d"),
