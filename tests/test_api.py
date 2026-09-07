@@ -182,7 +182,7 @@ class TestGetTask:
         assert set(detail["task"].keys()) == {
             "task_id", "title", "objective", "description",
             "project_id", "priority", "status", "task_type",
-            "acceptance_criteria", "assigned_agent",
+            "acceptance_criteria", "dependencies", "assigned_agent",
         }
         assert set(detail["result"].keys()) == {
             "agent_id", "status", "summary", "artifacts",

@@ -18,11 +18,13 @@ from runtime.agents.placeholder import ALL_PLACEHOLDER_AGENTS
 from runtime.core.orchestrator import EngineeringOrchestrator
 from runtime.core.result import AgentStatus
 from runtime.core.task import Task, TaskPriority, TaskStatus
+from runtime.core.task_manager import TaskManager
 
 SERVICE_NAME = "phoenix-ai-engineering"
 SERVICE_VERSION = "0.1.0"
 
 _orchestrator: EngineeringOrchestrator | None = None
+_task_manager: TaskManager | None = None
 
 
 def _get_orchestrator() -> EngineeringOrchestrator:
@@ -30,6 +32,13 @@ def _get_orchestrator() -> EngineeringOrchestrator:
     if _orchestrator is None:
         _orchestrator = EngineeringOrchestrator(agents=ALL_PLACEHOLDER_AGENTS)
     return _orchestrator
+
+
+def _get_task_manager() -> TaskManager:
+    global _task_manager
+    if _task_manager is None:
+        _task_manager = TaskManager(orchestrator=_get_orchestrator())
+    return _task_manager
 
 
 app = FastAPI(title=SERVICE_NAME, version=SERVICE_VERSION)
@@ -48,6 +57,7 @@ class CreateTaskRequest(BaseModel):
     task_type: str = ""
     acceptance_criteria: list[str] = Field(default_factory=list)
     relevant_files: list[str] = Field(default_factory=list)
+    dependencies: list[str] = Field(default_factory=list)
     assigned_agent: str | None = None
 
 
@@ -61,6 +71,7 @@ class TaskResponse(BaseModel):
     status: str
     task_type: str
     acceptance_criteria: list[str]
+    dependencies: list[str]
     assigned_agent: str | None
 
 
@@ -115,6 +126,7 @@ def _task_to_response(task: Task) -> TaskResponse:
         status=task.status.value,
         task_type=task.task_type,
         acceptance_criteria=task.acceptance_criteria,
+        dependencies=task.dependencies,
         assigned_agent=task.assignment.assigned_agent,
     )
 
@@ -180,12 +192,16 @@ def create_task(req: CreateTaskRequest):
         task_type=req.task_type,
         acceptance_criteria=req.acceptance_criteria,
         relevant_files=req.relevant_files,
+        dependencies=req.dependencies,
     )
     if req.assigned_agent:
         task.assignment.assigned_agent = req.assigned_agent
 
-    orch.accept_task(task)
-    orch.execute(task)
+    manager = _get_task_manager()
+    manager.add_task(task)
+
+    if manager.dependencies_satisfied(task):
+        manager.execute_task(task.task_id)
 
     return _task_to_response(task)
 
