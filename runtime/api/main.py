@@ -14,6 +14,8 @@ import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from runtime.adapters.adapter_agent import AdapterAgent
+from runtime.adapters.opencode import OpenCodeAdapter
 from runtime.agents.placeholder import ALL_PLACEHOLDER_AGENTS
 from runtime.core.orchestrator import EngineeringOrchestrator
 from runtime.core.result import AgentStatus
@@ -27,10 +29,21 @@ _orchestrator: EngineeringOrchestrator | None = None
 _task_manager: TaskManager | None = None
 
 
+def _get_runtime_agents():
+    agents = dict(ALL_PLACEHOLDER_AGENTS)
+
+    opencode_agent = AdapterAgent(OpenCodeAdapter())
+    agents[opencode_agent.agent_id] = opencode_agent
+
+    return agents
+
+
 def _get_orchestrator() -> EngineeringOrchestrator:
     global _orchestrator
     if _orchestrator is None:
-        _orchestrator = EngineeringOrchestrator(agents=ALL_PLACEHOLDER_AGENTS)
+        _orchestrator = EngineeringOrchestrator(
+            agents=_get_runtime_agents()
+        )
     return _orchestrator
 
 
